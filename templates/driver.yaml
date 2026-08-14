@@ -1,0 +1,36 @@
+# Orion Service resource for the mesh driver.
+# Adjust ${VARS} for your environment and apply with:
+#   orion apply -f driver.yaml
+apiVersion: orion/v1
+kind: Service
+metadata:
+  name: hitorro-mesh-driver
+  labels:
+    app: hitorro-mesh
+    role: driver
+spec:
+  binary: java
+  args:
+    - "-jar"
+    - "${HITORRO_JARS}/hitorro-mesh-driver-app-3.0.1.jar"
+    - "--spring.config.location=file:${HITORRO_CONFIG}/driver.yml"
+  env:
+    HITORRO_JARS: /opt/hitorro/jars
+    HITORRO_CONFIG: /opt/hitorro/mesh
+    JAVA_TOOL_OPTIONS: "-Xmx2G"
+  ports:
+    - name: rest
+      port: 8085
+      protocol: tcp
+  capabilities:
+    - jvssql-driver
+  resources:
+    cpu: 2
+    memMB: 4096
+  health:
+    liveness:
+      httpGet:
+        path: /actuator/health
+        port: 8085
+      intervalSec: 5
+      timeoutSec: 3

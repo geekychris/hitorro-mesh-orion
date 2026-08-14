@@ -1,0 +1,41 @@
+# Orion Service resource for one mesh agent. Duplicate this file per
+# shard, changing metadata.name + the capability + tables ndjson path.
+#
+#   orion apply -f agent-us.yaml
+apiVersion: orion/v1
+kind: Service
+metadata:
+  name: hitorro-mesh-agent-${SHARD}
+  labels:
+    app: hitorro-mesh
+    role: agent
+    shard: "${SHARD}"
+spec:
+  binary: java
+  args:
+    - "-jar"
+    - "${HITORRO_JARS}/hitorro-mesh-agent-app-3.0.1.jar"
+    - "--spring.config.location=file:${HITORRO_CONFIG}/agent-${SHARD}.yml"
+  env:
+    HITORRO_JARS: /opt/hitorro/jars
+    HITORRO_CONFIG: /opt/hitorro/mesh
+    JAVA_TOOL_OPTIONS: "-Xmx1G"
+    # Preferred way to declare capabilities — matches K8s convention too.
+    HITORRO_MESH_CAPABILITIES: "jvssql,partition:docs:${SHARD}"
+  capabilities:
+    - jvssql
+    - "partition:docs:${SHARD}"
+  # Node placement — restrict which physical nodes may host this shard.
+  # Orion's scheduler picks a node whose labels include everything in nodeSelector.
+  nodeSelector:
+    shard: "${SHARD}"
+  resources:
+    cpu: 2
+    memMB: 2048
+  health:
+    liveness:
+      httpGet:
+        path: /actuator/health
+        port: 8091
+      intervalSec: 5
+      timeoutSec: 3
