@@ -1,0 +1,58 @@
+# Orion Service resource for a hitorro-fleet-retrieval instance.
+# Duplicate this file per replica, changing metadata.name.
+#
+#   orion apply -f fleet-retrieval-0.yaml
+#   orion apply -f fleet-retrieval-1.yaml
+#
+# The `fleet-retrieval` capability is what OrionFleetEndpointRegistry
+# on the driver watches for — every Service that declares this
+# capability becomes an endpoint in the composite. Do NOT rename it.
+apiVersion: orion/v1
+kind: Service
+metadata:
+  name: hitorro-fleet-retrieval-${REPLICA}
+  labels:
+    app: hitorro-fleet-retrieval
+    role: fleet-retrieval
+    replica: "${REPLICA}"
+spec:
+  binary: java
+  args:
+    - "-jar"
+    - "${HITORRO_JARS}/hitorro-fleet-retrieval-3.0.1.jar"
+    - "--spring.config.location=file:${HITORRO_CONFIG}/fleet-retrieval.yml"
+  env:
+    HITORRO_JARS: /opt/hitorro/jars
+    HITORRO_CONFIG: /opt/hitorro/mesh
+    JAVA_TOOL_OPTIONS: "-Xmx2G"
+  # Advertise the fleet-retrieval capability so OrionFleetEndpointRegistry
+  # picks this up when polling the Orion API for available services.
+  capabilities:
+    - fleet-retrieval
+  # Data locality — pin each replica to a node that carries its shard
+  # of the pipelines-home volume.
+  nodeSelector:
+    shard: "${REPLICA}"
+  resources:
+    cpu: 2
+    memMB: 4096
+  health:
+    liveness:
+      httpGet:
+        path: /actuator/health
+        port: 8087
+      intervalSec: 5
+      timeoutSec: 3
+    readiness:
+      httpGet:
+        path: /actuator/health
+        port: 8087
+      intervalSec: 3
+      timeoutSec: 2
+  volumes:
+    # pipelines-home carries this replica's shard of Lucene indexes +
+    # KV stores. In "shared" mode a pipeline writer owns the volume
+    # and this fleet reads via ReadOnlyIndexService / ReadOnlyKvStore.
+    - name: pipelines-home
+      hostPath: /var/data/hitorro/fleet-retrieval-${REPLICA}
+      mountPath: /var/data/pipelines-home
