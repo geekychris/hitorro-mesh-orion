@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Hitorro Mesh Orion logo" width="180">
+</p>
+
 # hitorro-mesh-orion
 
 Orion bridge for the Hitorro Mesh.
