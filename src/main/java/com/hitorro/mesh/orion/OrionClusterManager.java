@@ -3,8 +3,9 @@
  */
 package com.hitorro.mesh.orion;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import com.hitorro.util.json.JsonMappers;
 
 import java.io.IOException;
 import java.net.URI;
@@ -20,6 +21,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
+import com.hitorro.util.json.JsonValues;
 
 /**
  * Reads declared mesh agents from an Orion controller's HTTP API.
@@ -56,7 +58,7 @@ import java.util.Set;
  */
 public final class OrionClusterManager implements ClusterManager {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = JsonMappers.json();
     static final String LABEL_APP = "hitorro-mesh";
     static final String LABEL_ROLE = "agent";
 
@@ -170,8 +172,8 @@ public final class OrionClusterManager implements ClusterManager {
             Set<String> capSet = new HashSet<>();
             if (caps != null && caps.isArray()) {
                 caps.forEach(c -> {
-                    if (c.isTextual()) capSet.add(c.asText());
-                    else if (c.hasNonNull("name") && c.get("name").isTextual()) capSet.add(c.get("name").asText());
+                    if (c.isString()) capSet.add(JsonValues.asText(c));
+                    else if (c.hasNonNull("name") && c.get("name").isString()) capSet.add(JsonValues.asText(c.get("name")));
                 });
             }
             String node = text(svc, "status", "nodeName");
@@ -197,7 +199,7 @@ public final class OrionClusterManager implements ClusterManager {
 
     private static String text(JsonNode n, String... path) {
         JsonNode cur = path(n, path);
-        return (cur != null && cur.isTextual()) ? cur.asText() : null;
+        return (cur != null && cur.isString()) ? JsonValues.asText(cur) : null;
     }
 
     private static JsonNode path(JsonNode n, String... path) {
