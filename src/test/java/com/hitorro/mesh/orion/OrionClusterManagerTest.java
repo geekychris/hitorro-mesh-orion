@@ -73,6 +73,46 @@ class OrionClusterManagerTest {
     }
 
     @Test
+    void parseServices_orionResourceShape_matchesLabelsAndUsesInstanceNodes() throws Exception {
+        // GET /v1/resources/Service as Orion returns it: a bare array of
+        // resources whose capabilities are {"name": ...} objects.
+        String services = """
+                [
+                  {"apiVersion": "orionmesh.dev/v1", "kind": "Service",
+                   "metadata": {"name": "hitorro-mesh-agent-us", "labels": {"app": "hitorro-mesh", "role": "agent"}},
+                   "spec": {"capabilities": [{"name": "jvssql"}, {"name": "partition:docs:us"}]}},
+                  {"apiVersion": "orionmesh.dev/v1", "kind": "Service",
+                   "metadata": {"name": "hitorro-mesh-driver", "labels": {"app": "hitorro-mesh", "role": "driver"}},
+                   "spec": {}},
+                  {"apiVersion": "orionmesh.dev/v1", "kind": "Service",
+                   "metadata": {"name": "something-else"}, "spec": {}}
+                ]
+                """;
+        String instances = """
+                [
+                  {"kind": "Service", "name": "hitorro-mesh-agent-us", "node": "old-node", "exited_at": "2026-01-01T00:00:00Z"},
+                  {"kind": "Service", "name": "hitorro-mesh-agent-us", "node": "mp2"},
+                  {"kind": "Task", "name": "hitorro-mesh-agent-us", "node": "elsewhere"}
+                ]
+                """;
+        Set<ClusterManager.DeclaredAgent> agents = OrionClusterManager.parseServices(
+                services, OrionClusterManager.parseInstanceNodes(instances), true);
+        assertThat(agents).hasSize(1);
+        ClusterManager.DeclaredAgent a = agents.iterator().next();
+        assertThat(a.name()).isEqualTo("hitorro-mesh-agent-us");
+        assertThat(a.declaredCapabilities()).containsExactlyInAnyOrder("jvssql", "partition:docs:us");
+        assertThat(a.nodeName()).isEqualTo("mp2");
+    }
+
+    @Test
+    void unreachableController_yieldsEmptyDeclaredSet() {
+        OrionClusterManager m = new OrionClusterManager(java.net.URI.create("http://127.0.0.1:1"),
+                java.time.Duration.ofMillis(200), java.time.Duration.ofSeconds(1), "t");
+        assertThat(m.platform()).isEqualTo("orion");
+        assertThat(m.declaredAgents()).isEmpty();
+    }
+
+    @Test
     void noopClusterManager_isSafeDefault() {
         NoopClusterManager m = new NoopClusterManager();
         assertThat(m.platform()).isEqualTo("none");
